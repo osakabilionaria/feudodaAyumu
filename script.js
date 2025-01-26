@@ -8,24 +8,38 @@ async function sendMessage() {
     // Clear input field
     document.getElementById('user-input').value = '';
 
-    // Send message to the API
-    const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer sk-fb0d63a2ba044c3e95e42eff70f72809' // Adicione sua chave API aqui
-        },
-        body: JSON.stringify({
-            model: 'deepseek-reasoner',
-            messages: [{ role: 'user', content: userInput }]
-        })
-    });
+    try {
+        // Send message to the API
+        const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer sk-fb0d63a2ba044c3e95e42eff70f72809' // Adicione sua chave API aqui
+            },
+            body: JSON.stringify({
+                model: 'deepseek-reasoner',
+                messages: [{ role: 'user', content: userInput }]
+            })
+        });
 
-    const data = await response.json();
-    const botResponse = data.choices[0].message.content;
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-    // Display bot message
-    displayMessage(botResponse, 'bot');
+        const data = await response.json();
+        console.log('API Response:', data);
+
+        if (data.choices && data.choices.length > 0) {
+            const botResponse = data.choices[0].message.content;
+            // Display bot message
+            displayMessage(botResponse, 'bot');
+        } else {
+            console.error('No choices in API response');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        displayMessage('An error occurred. Please try again.', 'bot');
+    }
 }
 
 function displayMessage(message, sender) {
