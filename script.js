@@ -2,9 +2,16 @@
 const apiKey = "sk-fb0d63a2ba044c3e95e42eff70f72809"; // INSIRA SUA CHAVE DA API AQUI
 const baseUrl = "https://api.deepseek.com/chat/completions";
 
+// Histórico de mensagens para conversas multi-round
+let messageHistory = [];
+
 // Função para enviar mensagem para a API
 async function queryDeepSeek(prompt) {
     console.log("Enviando requisição para a API...");
+
+    // Adiciona a mensagem do usuário ao histórico
+    messageHistory.push({ role: "user", content: prompt });
+
     try {
         const response = await fetch(baseUrl, {
             method: 'POST',
@@ -14,19 +21,8 @@ async function queryDeepSeek(prompt) {
             },
             body: JSON.stringify({
                 model: "deepseek-reasoner",
-                messages: [
-                    { 
-                        role: "system", 
-                        content: "Você é um assistente útil. Sempre retorne respostas no formato JSON." 
-                    },
-                    { 
-                        role: "user", 
-                        content: prompt 
-                    }
-                ],
-                response_format: { type: "json_object" }, // Garante que a resposta seja JSON
-                max_tokens: 500, // Define um limite razoável de tokens
-                stream: false
+                messages: messageHistory,
+                max_tokens: 4000 // Define um limite razoável de tokens
             })
         });
 
@@ -39,15 +35,21 @@ async function queryDeepSeek(prompt) {
         const data = await response.json();
         console.log("Dados da resposta:", data);
 
-        // Extrai o conteúdo da resposta JSON
+        // Extrai o conteúdo da resposta
         if (data.choices && data.choices[0] && data.choices[0].message) {
-            return JSON.stringify(data.choices[0].message.content, null, 2); // Formata o JSON para exibição
+            const reasoningContent = data.choices[0].message.reasoning_content; // Cadeia de Pensamento
+            const finalContent = data.choices[0].message.content; // Resposta final
+
+            // Adiciona a resposta do assistente ao histórico
+            messageHistory.push({ role: "assistant", content: finalContent });
+
+            return { reasoningContent, finalContent };
         } else {
-            return "Resposta inválida da API.";
+            throw new Error("Resposta inválida da API.");
         }
     } catch (error) {
         console.error('Erro ao chamar a API:', error);
-        return "Desculpe, ocorreu um erro ao processar sua mensagem.";
+        return { reasoningContent: null, finalContent: "Desculpe, ocorreu um erro ao processar sua mensagem." };
     }
 }
 
@@ -69,8 +71,15 @@ async function sendMessage() {
     userInput.value = '';
 
     // Chama a API e exibe a resposta
-    const botResponse = await queryDeepSeek(message);
-    appendMessage('bot-message', botResponse);
+    const { reasoningContent, finalContent } = await queryDeepSeek(message);
+
+    // Exibe a Cadeia de Pensamento (opcional)
+    if (reasoningContent) {
+        appendMessage('bot-message', `🔍 Cadeia de Pensamento: ${reasoningContent}`);
+    }
+
+    // Exibe a resposta final
+    appendMessage('bot-message', finalContent);
 }
 
 // Função para adicionar mensagens ao chat
